@@ -91,7 +91,7 @@ zarBook.prototype.load = function (name,str){
 zarBook.prototype.visDraw = function(id){
 	this.vis = {
 		nodes : new vis.DataSet(this.data.nodes),
-		edges : new vis.DataSet(),
+		edges : new vis.DataSet(this.data.edges),
 	};
 	var container = document.getElementById(id);
 	var data = {
@@ -100,10 +100,15 @@ zarBook.prototype.visDraw = function(id){
     };
     var options = {
         edges: {
-          smooth: true,
-          arrows: {to : true }
-        }
+    		smooth: {
+    			forceDirection: "none"
+    		},
+			arrows: {to : true }
+        },
+
+        interaction:{hover:true}
       };
+
 	this.vis.network = new vis.Network(container, data, options);
 	
 	this.vis.network.on("select", function (e){
@@ -113,6 +118,10 @@ zarBook.prototype.visDraw = function(id){
 		if(e.nodes.length > 0 || e.edges.length > 0) $.publish("select",e);
 	});
 	
+	this.vis.network.on("hoverNode", function (e){$("body").css("cursor","pointer"); });
+	this.vis.network.on("blurNode", function (e){ $("body").css("cursor","default"); });
+	this.vis.network.on("hoverEdge", function (e){ $("body").css("cursor","pointer"); });
+	this.vis.network.on("blurEdge", function (e){ $("body").css("cursor","default"); });
 };
 
 zarBook.prototype.visNodeAdd = function(){
@@ -139,10 +148,34 @@ zarBook.prototype.visNodeAdd = function(){
 	}
 };
 
-zarBook.prototype.visNodeAddTo = function(parent){
+zarBook.prototype.visNodeAddChildren = function(parent){
 	var children = this.visNodeAdd();
 	this.visEdgeAdd(parent,children);
 };
+
+zarBook.prototype.visNodeAddParent = function(parent){
+	var children = this.visNodeAdd();
+	this.visEdgeAdd(children,parent);
+};
+
+zarBook.prototype.visNodeUpdate = function(options){
+	this.vis.nodes.update(options);
+	this.data.nodes = this.vis.nodes.get();
+};
+
+zarBook.prototype.visNodePhysics = function(id,state){
+	//log(this.data.nodesData[id])
+	if (typeof state !== "boolean" ) return ("physics" in this.data.nodesData[id]) ? this.data.nodesData[id].physics : true;
+	
+	var dashes = (state) ? false : [5,5];
+	this.data.nodesData[id].physics = state;
+	this.visNodeUpdate({
+		id: id,
+		physics : state,
+		shapeProperties:{borderDashes:dashes}
+	});
+};
+
 
 zarBook.prototype.visNodeRemove = function(id){
 	try {
@@ -180,10 +213,14 @@ zarBook.prototype.visEdgeAdd = function(parent,children){
 			id : id,
 			from : parent,
 			to : children,
+			label : ""
 		});
 		this.data.nodesData[parent].out[children] = id;
 		this.data.nodesData[children].in[parent] = id;
-		this.data.edgesData[id] = 0;
+		this.data.edgesData[id] = {
+			from: parent,
+			to: children
+		};
 		this.data.edges = this.vis.edges.get();
 	} catch (err) {
 		console.log(err);
@@ -192,17 +229,43 @@ zarBook.prototype.visEdgeAdd = function(parent,children){
 
 zarBook.prototype.visEdgeUpdate = function(options){
 	 this.vis.edges.update(options);
+	 this.data.edges = this.vis.edges.get();
+};
+
+zarBook.prototype.visEdgeLabel = function(id,str){
+	if (typeof str === "undefined") return this.data.edgesData[id].label;
+	try {
+		this.visEdgeUpdate({
+			id:id,
+			label : str
+		});
+		this.data.edgesData[id].label = str;
+		
+	} catch (err) {
+		console.log(err);
+	}
 };
 
 zarBook.prototype.visEdgeRemove = function(id){
 	try {
 		this.vis.edges.remove({id: id});
-		delete this.data.edgesData[id];
 		this.data.edges = this.vis.edges.get();
-	}
-	catch (err) {
+		
+		delete this.data.nodesData[this.data.edgesData[id].from].out[this.data.edgesData[id].to];
+		delete this.data.nodesData[this.data.edgesData[id].to].in[this.data.edgesData[id].from];
+		delete this.data.edgesData[id];
+		
+	} catch (err) {
 		console.log(err);
 	}
+};
+
+
+zarBook.prototype.visPhysics = function(state){
+	if (typeof state !== "boolean" ) return console.log("visPhysics not boolean");
+	 this.vis.network.setOptions({
+	 	physics: {enabled: state}
+	 });
 };
 
 $(function(){
@@ -227,10 +290,10 @@ $(function(){
 	var zb = new zarBook();
 	
 	$.subscribe("init",function(e){
-		$("#zbeName").html( zb.getName() );
+		$("#zbeBookName").html( zb.getName() );
 		$("#zbManager").fadeOut();
 		$("#zbeNameWrap").slideDown();
-		$("#zbeSaveBtn,#zbeNewBtn").fadeIn();
+		$(".zbeIniShow").fadeIn();
 		zb.visDraw("canvas");
 	});
 	
@@ -243,17 +306,62 @@ $(function(){
 			$("#zbeNodeDropdown").show();
 			$(".zbeNodeNumber").html(id);
 			$(".zbeNodeDataNumber").data("id",id);
+			
+			//set node physics
+			var link = $("#zbeNodePhysicsLink");
+			if (zb.visNodePhysics(id)) {
+				var str = link.data("strOff");
+				link.html( str ).data("act",0);
+			} else {
+				var str = link.data("strOn");
+				link.html( str ).data("act",1);;
+			}
+				
+			
 		} else {
 			$("#zbeNodeDropdown").hide();
 		}
 		
 		if (obj.edges.length > 0){
+			var edgeText =  (obj.edges.length == 1) 
+				? "Ребро&nbsp;"+ '<span class="badge">'+zb.data.edgesData[obj.edges[0]].from+'&rarr;'+zb.data.edgesData[obj.edges[0]].to+'</span>&nbsp'
+				: "Рёбра&nbsp; ("+obj.edges.length+"шт.)";
+			
+			var edgesBadgesStr = "";
+			var edgesInputStr = "";
+				$.each(obj.edges,function(k,v){
+					edgesBadgesStr += '<span class="badge">'+zb.data.edgesData[v].from+'&rarr;'+zb.data.edgesData[v].to+'</span>&nbsp';
+					edgesInputStr += '<p><div class="input-group">\
+  						<span class="input-group-addon">\
+  						<span class="badge">'+zb.data.edgesData[v].from+'&rarr;'+zb.data.edgesData[v].to+'</span></span>\
+  						<input type="text" name="'+v+'" class="form-control" placeholder="'+zb.data.edgesData[v].label+'" value="'+zb.data.edgesData[v].label+'">\
+						</div></p>';					
+					
+				});
+			$(".zbeEdgesInputs").html(edgesInputStr);
+			$(".zbeEdgesBadges").html(edgesBadgesStr);
+			$(".zbeEdgesDataNumbers").data("id",$.toJSON(obj.edges));
+			
 			$("#zbeEdgeDropdown").show();
+			
+			$("#zbeEdgeDropdownTitle").html(edgeText);
 		} else { 
 			$("#zbeEdgeDropdown").hide();
 		}
 
 		//log(obj);
+	});
+	
+	
+//edges remove 
+	$("#zbeEdgesRemoveLink").bind("click",function(e){
+		e.preventDefault();
+		var id = $(this).data("id");
+		id = $.parseJSON(id);
+		$.each(id,function(k,v){
+			zb.visEdgeRemove(v);
+		});
+		$("#zbeModalEdgesRemove").modal("hide");
 	});
 	
 //node add
@@ -266,9 +374,102 @@ $(function(){
 	$("#zbeNodeAddChildrenLink").bind("click",function(e){
 		e.preventDefault();
 		var parent = $(this).data("id");
-		zb.visNodeAddTo(parent);
+		zb.visNodeAddChildren(parent);
 	});
 	
+//node add parent 
+	$("#zbeNodeAddParentLink").bind("click",function(e){
+		e.preventDefault();
+		var parent = $(this).data("id");
+		zb.visNodeAddParent(parent);
+	});
+	
+//node concat
+	$("#zbeModalNodeConcatForm").submit(function(e){
+		e.preventDefault();
+		var err = 0;
+		var inputParent = $("#zbeModalNodeConcatParentInput");
+		var inputParentWrap = inputParent.closest(".form-group").removeClass('has-error');
+		var valParent = inputParent.val();
+		var helpParent = $("#zbeModalNodeConcatParentHelp").empty();
+		
+		var inputChildren = $("#zbeModalNodeConcatChildrenInput");
+		var inputChildrenWrap = inputChildren.closest(".form-group").removeClass('has-error');
+		var valChildren = inputChildren.val();
+		var helpChildren = $("#zbeModalNodeConcatChildrenHelp").empty();
+		
+		var helpForm = $("#zbeModalNodeConcatHelp").empty();
+
+		var nodeId = $(this).data("id");
+		
+		var valid = function(val){
+			var parseVal = parseInt(val);
+			var err = "valid";
+			if (val=="") return "skip";
+				
+			if (isNaN(parseVal))
+				return "Это значение не является целым числом!";
+			if (parseVal == 0)
+				return "Номерация параграфов начинается с единицы!";
+			if (parseVal == nodeId)
+				return "Нельзя связать параграф с самим собой!";			
+			if (parseVal in zb.data.nodesData[nodeId].in || parseVal in zb.data.nodesData[nodeId].out)
+				return "Эти параграфы уже связаны";			
+			if (!(parseVal in zb.data.nodesData))
+				return "Параграф с таким номером ещё не создан";
+			return err;
+		};
+		
+		var strParent = valid(valParent);
+		if (strParent != "valid" && strParent != "skip") {
+			inputParentWrap.addClass("has-error");
+			helpParent.html(strParent);
+		}
+
+		var strChildren = valid(valChildren);
+		if (strChildren != "valid" && strChildren != "skip") {
+			inputChildrenWrap.addClass("has-error");
+			helpChildren.html(strChildren);
+		}
+
+		if (strParent == "skip" && strChildren == "skip")
+			return helpForm.html("Вы оставили оба поля пустыми и отправили форму! Why, Mr. Anderson?");
+		
+		if (parseInt(valParent) == parseInt(valChildren))
+			return helpForm.html("Если Вы можете представить предкопотомка, то я искренне завидую Вашей фантазии.");
+		
+		if (strParent != "valid" && strParent != "skip" && strChildren != "valid" && strChildren != "skip")
+			return helpForm.html("Форма заполнена неверно. Выпейте кофе и попытайтесь ещё раз.");
+			
+		if ((strParent != "valid" || strParent == "skip") && (strChildren != "valid" || strChildren == "skip"))
+			return helpForm.html("Одно из значений заполнено неверно, проверьте ещё раз.");
+		
+		if (strParent == "valid") zb.visEdgeAdd(parseInt(valParent),nodeId);
+		if (strChildren == "valid") zb.visEdgeAdd(nodeId,parseInt(valChildren));
+		
+		$("#zbeModalNodeConcat").modal("hide");
+		
+	});	
+	
+//node physics 
+	$("#zbeNodePhysicsLink").bind("click",function(e){
+		e.preventDefault();
+		var self = $(this);
+		var id = self.data("id");
+		var act = self.data("act");
+		
+		if (act == 0){
+			var str = self.data("act",1).data("strOn");
+			var state = false; 
+		} else {
+			var str = self.data("act",0).data("strOff");
+			var state = true;
+		}
+		$(this).html(str);
+		zb.visNodePhysics(id,state);
+	});
+
+
 //node remove
 	$("#zbeNodeRemoveLink").bind("click",function(){
 		var id = $(this).data("id");
@@ -276,19 +477,27 @@ $(function(){
 		$('#zbeModalNodeRemove').modal('hide');
 	});
 
-
+//disable physics on modal
+	$('.modal').on('show.bs.modal', function () {
+  		zb.visPhysics(false);
+	});
+	$('.modal').on('hidden.bs.modal', function () {
+  		zb.visPhysics(true);
+	});
 	
+
+//book TEMP	
 	$("#zbCreateBookFrm").submit(function(e){
 		e.preventDefault();
 		zb.setName($(this).find("input[type=text]").val());
 		noty({text: "<b>"+zb.getName()+ "</b>" + " успешно создана"});
 		$.publish("init");
-	}).trigger("submit")
-	;
+	});
 	
-	$("#zbeNewBtn").bind("click",function(e){
+//book new	
+	$("#zbeBookNewLink").bind("click",function(e){
 		e.preventDefault();
-		$("#zbUploadFormInput").val("");
+		$("#zbeBookUploadFormInputFile").val("");
 		window.location.reload();
 	});
 
@@ -297,20 +506,30 @@ $(function(){
 		zb.save();
 	});
 	
-	$("#zbUploadForm").submit(function(e) {
+
+//book load
+	$('#zbeBookUploadFormInputFile').change(function(){
+    	$('#zbeBookUploadFormInputText').val($(this).val());
+	}).trigger("change");
+	
+	$("#zbeBookUploadForm").submit(function(e) {
 		e.preventDefault();
-		var result = zb.getFile("zbUploadFormInput");
+		var result = zb.getFile("zbeBookUploadFormInputFile");
 		noty({text: "<b>"+result.filename+ "</b>" + " успешно загружен"});
 	});
 	
-	if( $("#zbUploadFormInput").val() != "" ) {
-		$("#zbUploadForm").trigger("submit");
+	
+//refresh	
+	if( $("#zbeBookUploadFormInputFile").val() != "" ) {
+		$("#zbeBookUploadForm").trigger("submit");
+	} else {
+	//	$("#zbCreateBookFrm").trigger("submit");
 	}
 
 
 	
 
-//change name	
+//change name	!!!
 	var i = $("#zbeNameChButton").data("editTxt");
 	$("#zbeNameChButton").html(i).click(function(e){
 		var act = $(this).data("act");
