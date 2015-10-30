@@ -237,7 +237,8 @@ zarBook.prototype.visEdgeLabel = function(id,str){
 	try {
 		this.visEdgeUpdate({
 			id:id,
-			label : str
+			label : str,
+			font: {align: 'middle'}
 		});
 		this.data.edgesData[id].label = str;
 		
@@ -303,9 +304,11 @@ $(function(){
 		
 		if (obj.nodes.length > 0) {
 			var id = obj.nodes[0];
+			var nodeText = (typeof zb.data.nodesData[id].text === "undefined") ? "" : zb.data.nodesData[id].text;
 			$("#zbeNodeDropdown").show();
 			$(".zbeNodeNumber").html(id);
 			$(".zbeNodeDataNumber").data("id",id);
+			$(".zbeNodeValText").val(nodeText);
 			
 			//set node physics
 			var link = $("#zbeNodePhysicsLink");
@@ -329,14 +332,14 @@ $(function(){
 			
 			var edgesBadgesStr = "";
 			var edgesInputStr = "";
-				$.each(obj.edges,function(k,v){
-					edgesBadgesStr += '<span class="badge">'+zb.data.edgesData[v].from+'&rarr;'+zb.data.edgesData[v].to+'</span>&nbsp';
-					edgesInputStr += '<p><div class="input-group">\
-  						<span class="input-group-addon">\
-  						<span class="badge">'+zb.data.edgesData[v].from+'&rarr;'+zb.data.edgesData[v].to+'</span></span>\
-  						<input type="text" name="'+v+'" class="form-control" placeholder="'+zb.data.edgesData[v].label+'" value="'+zb.data.edgesData[v].label+'">\
-						</div></p>';					
-					
+			$.each(obj.edges,function(k,v){
+				var edgeLabel = (typeof zb.data.edgesData[v].label === "undefined") ? "" : zb.data.edgesData[v].label;
+				edgesBadgesStr += '<span class="badge">'+zb.data.edgesData[v].from+'&rarr;'+zb.data.edgesData[v].to+'</span>&nbsp';
+				edgesInputStr += '<p><div class="input-group">\
+					<span class="input-group-addon">\
+					<span class="badge">'+zb.data.edgesData[v].from+'&rarr;'+zb.data.edgesData[v].to+'</span></span>\
+					<input type="text" name="'+v+'" class="form-control" placeholder="'+edgeLabel+'" value="'+edgeLabel+'">\
+					</div></p>';					
 				});
 			$(".zbeEdgesInputs").html(edgesInputStr);
 			$(".zbeEdgesBadges").html(edgesBadgesStr);
@@ -349,9 +352,65 @@ $(function(){
 			$("#zbeEdgeDropdown").hide();
 		}
 
-		//log(obj);
 	});
 	
+//editor
+ $("textarea").markItUp( {
+    nameSpace:       "xbbcode", // Useful to prevent multi-instances CSS conflict
+	previewParserPath:	'', // path to your XBBCode parser
+	onShiftEnter:	{keepDefault:false, replaceWith:'[br /]\n'},
+	onCtrlEnter:	{keepDefault:false, openWith:'\n[p]', closeWith:'[/p]\n'},
+	onTab:			{keepDefault:false, openWith:'	 '},
+	markupSet: [
+		{name:'H1', key:'1', openWith:'[h1(!( class="[![Class]!]")!)]', closeWith:'[/h1]'},
+		{name:'H2', key:'2', openWith:'[h2(!( class="[![Class]!]")!)]', closeWith:'[/h2]'},
+		{name:'H3', key:'3', openWith:'[h3(!( class="[![Class]!]")!)]', closeWith:'[/h3]'},
+		{name:'H4', key:'4', openWith:'[h4(!( class="[![Class]!]")!)]', closeWith:'[/h4]'},
+		{name:'H5', key:'5', openWith:'[h5(!( class="[![Class]!]")!)]', closeWith:'[/h5]'},
+		{name:'H6', key:'6', openWith:'[h6(!( class="[![Class]!]")!)]', closeWith:'[/h6]'},
+		{separator:'|' },
+		{name:'P', openWith:'[p(!( class="[![Class]!]")!)]', closeWith:'[/p]' },
+		{separator:'|' },
+		{name:'B', key:'B', openWith:'(!([b]|!|[b])!)', closeWith:'(!([/b]|!|[/b])!)' },
+		{name:'I', key:'I', openWith:'(!([i]|!|[i])!)', closeWith:'(!([/i]|!|[/i])!)' },
+		{name:'U', key:'U', openWith:'(!([u]|!|[u])!)', closeWith:'(!([/u]|!|[/u])!)' },
+		{separator:'' },
+		{name:'UL', openWith:'[ul]\n', closeWith:'[/ul]\n' },
+		{name:'OL', openWith:'[ol]\n', closeWith:'[/ol]\n' },
+		{name:'LI', openWith:'[li]', closeWith:'[/li]' },
+		//{separator:'' },
+		//{name:'', key:'P', replaceWith:'[img src="[![Source:!:http://]!]" alt="[![Alternative text]!]" /]' },
+		//{name:'', key:'L', openWith:'[a href="[![Link:!:http://]!]"(!( title="[![Title]!]")!)]', closeWith:'[/a]', placeHolder:'Your text to link...' },
+		//{separator:'' },
+		//{name:'', className:'clean', replaceWith:function(markitup) { return markitup.selection.replace(/\[(.*?)\]/g, "") } },
+		//{name:'', className:'preview', call:'preview' }
+	]
+});
+
+//editor previev 
+	$("#zbeModalNodeEditPrevievLink").bind("click",function(e){
+		var str = $("#zbeModalNodeEditArea").val();
+		var obj = XBBCODE.process({text: str,addInLineBreaks: true});
+		if (obj.errors){
+			str = '<div class="alert alert-danger"></div>' + str;
+			$("#zbeModalNodeEditPreviev").html(str);
+		} else 
+			$("#zbeModalNodeEditPreviev").html(obj.html);
+			
+		log(obj)
+		
+	});
+
+	
+//edges label 
+	$("#zbeModalEdgesLabelForm").bind("submit",function(e){
+		e.preventDefault();
+		var obj = $(this).serializeArray();
+		$.each(obj,function(k,v){
+			zb.visEdgeLabel(v.name,v.value);			
+		});
+		$("#zbeModalEdgesLabel").modal("hide");
+	});	
 	
 //edges remove 
 	$("#zbeEdgesRemoveLink").bind("click",function(e){
@@ -480,6 +539,7 @@ $(function(){
 //disable physics on modal
 	$('.modal').on('show.bs.modal', function () {
   		zb.visPhysics(false);
+  		$(this).find(".modalShowEmpty").empty();
 	});
 	$('.modal').on('hidden.bs.modal', function () {
   		zb.visPhysics(true);
@@ -526,28 +586,5 @@ $(function(){
 	//	$("#zbCreateBookFrm").trigger("submit");
 	}
 
-
 	
-
-//change name	!!!
-	var i = $("#zbeNameChButton").data("editTxt");
-	$("#zbeNameChButton").html(i).click(function(e){
-		var act = $(this).data("act");
-		var block = $("#zbeName");
-		var input = $("#zbenameChInput");
-		var bookName = block.hide().text();
-		
-		if (act=="edit") {
-			var name = $(this).data("saveTxt");
-			$(this).text( name ).data("act","save");
-			input.show().val(bookName);
-		} else {
-			var data = $(this).data("editTxt");
-			$(this).html( data ).data("act","edit");
-			var name = input.hide().val();
-			block.show().text( name );
-			zb.setName(name);
-			noty({type:"alert",text:"Название изменено"});
-		}
-	});
 });
