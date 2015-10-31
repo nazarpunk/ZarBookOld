@@ -27,7 +27,9 @@ function transliterate(text, engToRus){
 window.zarBook = function(){
 	this.data = {
 		info : {
-			name : ""
+			name : "",
+			description : "",
+			copyright : ""
 		},
 		nodes : {},
 		edges : {},
@@ -51,7 +53,7 @@ zarBook.prototype.save = function(){
 	var blob = new Blob([j], {type: "text/plain;charset=utf-8"});
 	var name = transliterate(this.getName());
 	name = name.replace(/[^-_a-z0-9]/gi, '_').toLowerCase();
-	saveAs(blob, name+".txt");
+	saveAs(blob, name+".zb");
 };
 
 zarBook.prototype.getFile = function (id) {          
@@ -122,6 +124,10 @@ zarBook.prototype.visDraw = function(id){
 	this.vis.network.on("blurNode", function (e){ $("body").css("cursor","default"); });
 	this.vis.network.on("hoverEdge", function (e){ $("body").css("cursor","pointer"); });
 	this.vis.network.on("blurEdge", function (e){ $("body").css("cursor","default"); });
+};
+
+zarBook.prototype.nodeText = function(id,text){
+	this.data.nodesData[id].text = text;
 };
 
 zarBook.prototype.visNodeAdd = function(){
@@ -362,6 +368,8 @@ $(function(){
 	onCtrlEnter:	{keepDefault:false, openWith:'\n[p]', closeWith:'[/p]\n'},
 	onTab:			{keepDefault:false, openWith:'	 '},
 	markupSet: [
+		{name:'N', openWith:'[n=(!( class="[![Class]!]")!)]', closeWith:'[/n]' },
+		{separator:'|' },
 		{name:'H1', key:'1', openWith:'[h1(!( class="[![Class]!]")!)]', closeWith:'[/h1]'},
 		{name:'H2', key:'2', openWith:'[h2(!( class="[![Class]!]")!)]', closeWith:'[/h2]'},
 		{name:'H3', key:'3', openWith:'[h3(!( class="[![Class]!]")!)]', closeWith:'[/h3]'},
@@ -390,15 +398,26 @@ $(function(){
 //editor previev 
 	$("#zbeModalNodeEditPrevievLink").bind("click",function(e){
 		var str = $("#zbeModalNodeEditArea").val();
-		var obj = XBBCODE.process({text: str,addInLineBreaks: true});
-		if (obj.errors){
-			str = '<div class="alert alert-danger"></div>' + str;
+		var obj = XBBCODE.process({text: str});
+		if (obj.error == true){
+			var strError = "";
+			$.each(obj.errorQueue,function(k,v){
+				strError += "<li>"+v+"</li>";
+			});
+			str = '<div class="alert alert-danger"><ul>'+strError+'</ul></div>';
 			$("#zbeModalNodeEditPreviev").html(str);
 		} else 
-			$("#zbeModalNodeEditPreviev").html(obj.html);
-			
-		log(obj)
-		
+			str = obj.html;
+			str = str.replace(/\r\n|\r|\n/g,"<br />");		
+			$("#zbeModalNodeEditPreviev").html(str);
+	});
+	
+//editor save 
+	$("#zbeNodeEditSaveLink").bind("click",function(e){
+		var id = $(this).data("id");
+		var str = $("#zbeModalNodeEditArea").val();
+		zb.nodeText(id,str);
+		$("#zbeModalNodeEdit").modal("hide");
 	});
 
 	
@@ -545,6 +564,39 @@ $(function(){
   		zb.visPhysics(true);
 	});
 	
+//book settings modal 
+	$('#zbeModalBookSetting').on('show.bs.modal', function () {
+		$("#zbeModalBookSettingNameInput").val(zb.getName());
+		$("#zbeModalBookSettingDescriptionArea").val(zb.data.info.description);
+		$("#zbeModalBookSettingCopyrightArea").val(zb.data.info.copyright);
+		
+	});
+	
+//book modal save 
+	$("#zbeModalBookSettingForm").bind("submit",function(e){
+		e.preventDefault();
+		var name = $("#zbeModalBookSettingNameInput").val();
+		zb.setName( name );
+		$("#zbeBookName").text(name);
+		
+		zb.data.info.description = $("#zbeModalBookSettingDescriptionArea").val();
+		zb.data.info.copyright = $("#zbeModalBookSettingCopyrightArea").val();
+		$('#zbeModalBookSetting').modal("hide");
+	});
+	
+//book modal play
+	$('#zbeModalBookPlay').on('show.bs.modal', function () {
+		zb.play({
+			body : $("#zbeModalBookPlayBody"),
+			header : $("#zbeModalBookPlayHeader"),
+			footer : $("#zbeModalBookPlayFooter"),
+			data : zb.data,
+		});
+		
+	});
+	
+
+	
 
 //book TEMP	
 	$("#zbCreateBookFrm").submit(function(e){
@@ -579,12 +631,14 @@ $(function(){
 	});
 	
 	
-//refresh	
+//refresh
 	if( $("#zbeBookUploadFormInputFile").val() != "" ) {
-		$("#zbeBookUploadForm").trigger("submit");
+		//$("#zbeBookUploadForm").trigger("submit");
 	} else {
 	//	$("#zbCreateBookFrm").trigger("submit");
 	}
-
+	
+	$("#zbeBookUploadFormInputFile, #zbeBookUploadFormInputText").val("");
+	
 	
 });

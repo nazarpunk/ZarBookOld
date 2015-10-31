@@ -24,6 +24,8 @@ THE SOFTWARE.
     Extendible BBCode Parser v1.0.0
     By Patrick Gillespie (patorjk@gmail.com)
     Website: http://patorjk.com/
+    
+    https://github.com/patorjk/Extendible-BBCode-Parser
 
     This module allows you to parse BBCode and to extend to the mark-up language
     to add in your own tags.
@@ -122,6 +124,29 @@ var XBBCODE = (function() {
         "p": {
 			openTag: function(params,content) { return '<p>'; },
             closeTag: function(params,content) { return '</p>'; }
+        },
+         "n": {
+            openTag: function(params,content) {
+
+                var myUrl;
+
+                if (!params) {
+                    myUrl = content.replace(/<.*?>/g,"");
+                } else {
+                    myUrl = params.substr(1);
+                }
+
+                var regex = /^\d+$/;
+                if ( !regex.test( myUrl ) ) {
+                    myUrl = "#";
+                }
+
+                return '<a class="zbNodeLink" href="#" data-node-id="'+myUrl+'">';
+            },
+            closeTag: function(params,content) {
+            	var regex = /^\d+$/;
+                return '</a>';
+            }
         },
         
         
