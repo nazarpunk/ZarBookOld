@@ -95,62 +95,65 @@ var XBBCODE = (function() {
      *    tag names, just make sure the tag name gets escaped properly (if needed).
      * --------------------------------------------------------------------------- */
 
-    tags = {
+	tags = {
+		"n": {
+			openTag: function(params,content) {
+				var str = "";
+				if (/=\d*$/.test(params)) {
+					var id = params.substr(1);
+					str =  '<a class="zbNodeLink" href="#" data-node-id="'+id+'">';
+					if ($.trim(content)=="") str += "Параграф "+id;
+					
+				} else {
+					str = '<span class="label label-danger">';
+					if ($.trim(content)=="") str += 'ошибка';
+				}
+				return str;
+			},
+			closeTag: function(params,content) {
+				if (/=\d*$/.test(params)) return '</a>';
+				return '</span>';
+			},
+			restrictChildrenTo: ['none']
+		},
+		"i": {
+            openTag: function(params,content) {
+                return '<i>';
+            },
+            closeTag: function(params,content) {
+                return '</i>';
+            }
+        },
 		"h1": {
 			openTag: function(params,content) { return '<h1>'; },
-            closeTag: function(params,content) { return '</h1>'; }
-        },
+			closeTag: function(params,content) { return '</h1>'; }
+		},
 		"h2": {
 			openTag: function(params,content) { return '<h2>'; },
-            closeTag: function(params,content) { return '</h2>'; }
+			closeTag: function(params,content) { return '</h2>'; }
         },
    		"h3": {
 			openTag: function(params,content) { return '<h3>'; },
-            closeTag: function(params,content) { return '</h3>'; }
-        },
-        "h4": {
+			closeTag: function(params,content) { return '</h3>'; }
+		},
+		"h4": {
 			openTag: function(params,content) { return '<h4>'; },
-            closeTag: function(params,content) { return '</h4>'; }
-        },
-        "h5": {
+			closeTag: function(params,content) { return '</h4>'; }
+		},
+		"h5": {
 			openTag: function(params,content) { return '<h5>'; },
-            closeTag: function(params,content) { return '</h5>'; }
-        },
-        "h6": {
+			closeTag: function(params,content) { return '</h5>'; }
+		},
+		"h6": {
 			openTag: function(params,content) { return '<h6>'; },
-            closeTag: function(params,content) { return '</h6>'; }
-        },
+			closeTag: function(params,content) { return '</h6>'; }
+		},
 
         "p": {
 			openTag: function(params,content) { return '<p>'; },
             closeTag: function(params,content) { return '</p>'; }
         },
-         "n": {
-            openTag: function(params,content) {
-
-                var myUrl;
-
-                if (!params) {
-                    myUrl = content.replace(/<.*?>/g,"");
-                } else {
-                    myUrl = params.substr(1);
-                }
-
-                var regex = /^\d+$/;
-                if ( !regex.test( myUrl ) ) {
-                    myUrl = "#";
-                }
-
-                return '<a class="zbNodeLink" href="#" data-node-id="'+myUrl+'">';
-            },
-            closeTag: function(params,content) {
-            	var regex = /^\d+$/;
-                return '</a>';
-            }
-        },
         
-        
-
         "b": {
             openTag: function(params,content) {
                 return '<b>';
@@ -261,15 +264,6 @@ var XBBCODE = (function() {
             },
             closeTag: function(params,content) {
                 return '</span>';
-            }
-        },
-
-        "i": {
-            openTag: function(params,content) {
-                return '<i">';
-            },
-            closeTag: function(params,content) {
-                return '</i>';
             }
         },
         "img": {

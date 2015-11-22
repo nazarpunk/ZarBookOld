@@ -8,14 +8,11 @@ zarBook.prototype.play = function(obj){
 	this.playData = {
 		body : obj.body,
 		header : obj.header,
-		footer : obj.footer,
 		data : obj.data,
 	};
 	var data = this.playData.data;
-	var name = XBBCODE.process({text: data.info.name});
-	this.playData.header.html(name.html);
-	name = XBBCODE.process({text: data.info.copyright});
-	this.playData.footer.html(name.html);
+	var name = data.info.name;
+	this.playData.header.html(name);
 	
 	var self = this;
 	this.playData.body
@@ -32,20 +29,16 @@ zarBook.prototype.play = function(obj){
 	
 	
 	//lets play!
-	this.playNode("start");
+	this.playNode(0);
 };
 
 zarBook.prototype.playNode = function(id){
 	var data = this.playData.data;
-	var text = ""
+	var text = "";
 	if (typeof data.nodesData[id] !== "undefined")
 		if (typeof data.nodesData[id].text == "undefined") text = "ОШИБКА!!1"; 
 		else text = data.nodesData[id].text;
-	
-	if (id=="start") text = data.info.description;
-	
-	var str = XBBCODE.process({text: text});
-	
-	this.playData.body.html(str.html);
-	
+		
+	var obj = XBBCODE.process({text: text});
+	this.playData.body.html(obj.html);	
 };

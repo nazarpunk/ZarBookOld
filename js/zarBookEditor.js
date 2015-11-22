@@ -5,7 +5,7 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {} else 
   alert('Ваш браузер морально устарел, обновите пожалуйста!');
 };
 
-//tiny pub/sub from https://github.com/cowboy/jquery-tiny-pubsub
+//https://github.com/cowboy/jquery-tiny-pubsub
 (function($){
  	var o = $({});
 	$.subscribe = function() { o.bind.apply( o, arguments ); };
@@ -13,7 +13,9 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {} else 
 	$.publish = function() { o.trigger.apply( o, arguments ); };
 })(jQuery);
 
-function transliterate(text, engToRus){
+//http://javascript.ru/forum/168115-post5.html
+String.prototype.translit = function(text, engToRus){
+	var text = this;
 	var	rus = "щ   ш  ч  ц  ю  я  ё  ж  ъ  ы  э  а б в г д е з и й к л м н о п р с т у ф х ь".split(/ +/g),
 		eng = "shh sh ch cz yu ya yo zh _ y- e- a b v g d e z i j k l m n o p r s t u f x _".split(/ +/g);
 	for(var x = 0; x < rus.length; x++) {
@@ -21,19 +23,108 @@ function transliterate(text, engToRus){
 		text = text.split(engToRus ? eng[x].toUpperCase() : rus[x].toUpperCase()).join(engToRus ? rus[x].toUpperCase() : eng[x].toUpperCase());	
 	}
 	return text;
+};
+//php-like matches
+String.prototype.matches = function(re){
+	var arr;
+	var str = this;
+	var obj = {
+		0 : new Array,
+		1 : new Array
+	};
+	var i = 0;
+	while ((arr = re.exec(str)) != null){
+		obj[0][i]=arr[1];
+		obj[1][i]=arr[0];
+		i++;
+	};
+	
+	return obj;
+};
 
-} 
+Array.prototype.toObject = function(obj) {
+	obj = obj || {};
+	var val = obj.value || 0;
 
+	var obj = {};
+	var length = this.length;
+	for(var i=0; i < length ; i++) {
+		obj[this[i]] = val;
+	}
+	return obj;
+};
+
+
+//http://habrahabr.ru/post/248229/
+Array.prototype.intersect = function(B) {
+	var A = this;
+	var m = A.length, n = B.length, c = 0, C = [];
+	for (var i = 0; i < m; i++)
+	{ 
+		var j = 0, k = 0;
+		while (B[j] !== A[ i ] && j < n) j++;
+		while (C[k] !== A[ i ] && k < c) k++;
+		if (j != n && k == c) C[c++] = A[ i ];
+	}
+	return C;
+};
+Array.prototype.diff = function(B) {
+	var A = this;
+	var M = A.length, N = B.length, c = 0, C = [];
+	for (var i = 0; i < M; i++)
+	{
+		var j = 0, k = 0;
+		while (B[j] !== A[ i ] && j < N) j++;
+		while (C[k] !== A[ i ] && k < c) k++;
+		if (j == N && k == c) C[c++] = A[ i ];
+	}
+	return C;
+};
+Array.prototype.sum = function(B) {
+	var A = this;
+	var M = A.length, N = B.length, count = 0, C = [];
+	C = A;
+	count = M;
+	var cnt = 0;
+	for (var i=0;i<N;i++)
+	{ 
+		var plus = false;
+		for (var j=0;j<M;j++)
+			if (C[j] == B[i]) {plus = true; break;}
+		if (plus === false) C[count++] = B[i];
+	}
+	return C;
+};
+Array.prototype.diffSym = function(B) {
+	var A = this;
+	var M = A.length, N = B.length, c = 0, C = [];
+	for (var i = 0; i < M; i++)
+	{
+		var j = 0, k = 0;
+		while (B[j] !== A[ i ] && j < N) j++;
+		while (C[k] !== A[ i ] && k < c) k++;
+		if (j == N && k == c) C[c++] = A[ i ];
+	}
+	for (var i = 0; i < N; i++)
+	{
+		var j = 0, k = 0;
+		while (A[j] !== B[ i ] && j < M) j++;
+		while (C[k] !== B[ i ] && k < c) k++;
+		if (j == M && k == c) C[c++] = B[ i ];
+	}
+	return C;
+};
+
+//book core
 window.zarBook = function(){
 	this.data = {
 		info : {
-			name : "",
-			description : "",
-			copyright : ""
+			name : ""
 		},
 		nodes : {},
-		edges : {},
 		nodesData : {},
+		
+		edges : {},
 		edgesData : {}
 	};
 };
@@ -51,35 +142,33 @@ zarBook.prototype.getName = function(){
 zarBook.prototype.save = function(){
 	var j = $.toJSON(this.data);
 	var blob = new Blob([j], {type: "text/plain;charset=utf-8"});
-	var name = transliterate(this.getName());
+	var name = this.getName().translit();
 	name = name.replace(/[^-_a-z0-9]/gi, '_').toLowerCase();
 	saveAs(blob, name+".zb");
 };
 
-zarBook.prototype.getFile = function (id) {          
+zarBook.prototype.getFile = function (id) {
 	var input = document.getElementById(id);
 	if (!input.files) {
 		alert("This browser doesn't seem to support the `files` property of file inputs.");
-    }
-    else if (!input.files[0]) {
-      alert("Please select a file before clicking 'Load'");               
-    }
-    else {
+	} else if (!input.files[0]) {
+		alert("Please select a file before clicking 'Load'");
+	}
+	else {
 		var t = this;
 		var file = input.files[0];
-      	var fr = new FileReader();
+		var fr = new FileReader();
 		var err = false;
-		      	
-      	fr.onload = function(e){
-      		t.load(file.name,e.target.result);
-      	};
-      	
-   		fr.readAsText(file);
+
+		fr.onload = function(e){
+			t.load(file.name,e.target.result);
+		};
+
+		fr.readAsText(file);
 
 		return {filename:file.name,error:false};
+	}
 
-    }
-    
 };
 
 zarBook.prototype.load = function (name,str){
@@ -90,6 +179,85 @@ zarBook.prototype.load = function (name,str){
 	$.publish("init");
 };
 
+zarBook.prototype.nodeText = function(id,text,add){
+	if (typeof text === "undefined") return this.data.nodesData[id].text;
+	if (add === true) this.data.nodesData[id].text += text;
+	else this.data.nodesData[id].text = text;
+};
+
+zarBook.prototype.nodeLabel = function(id,str){
+	if (typeof str === 'undefined') return this.data.nodesData[id].label; 
+	this.data.nodesData[id].label = str;
+	var label = (str=="") ? id : id+'\n'+str; 
+	
+	this.visNodeUpdate({
+		id:id,
+		label: label
+	});
+};
+
+
+zarBook.prototype.nodeParse = function(obj){
+	var nodeId = obj.id;
+	var nodeText = obj.text;
+	var re = /\[n=(\d+)\]/g;
+	var reSelf = new RegExp('\\[n='+nodeId+'\\]','g');
+	var nodes = this.data.nodesData;
+	var nodeData = nodes[nodeId];
+	
+	//new node replace
+	while (nodeText.match(/\[n=\]/g) != null){
+		nodeText = nodeText.replace("[n=]","[n="+this.nodeUniqId(nodeText.matches(re)[0].toObject())+"]");
+	}
+
+	//parse bb
+	var obj = XBBCODE.process({text: nodeText});
+	//self link match
+	if (reSelf.test(nodeText)) {
+		obj.error = true;
+		obj.errorQueue.push('Присутствует ссылка на самого себя');
+	}
+	if (obj.error == true) return {
+		error: true,
+		errorQueue : obj.errorQueue
+	};
+	
+	
+	var nodeHtml = obj.html.replace(/\r\n|\r|\n/g,"<br />");
+	
+	//return
+	var nodeOut = Object.keys(nodeData.out);
+	var nodesMatch = nodeText.matches(re)[0];
+	
+	var nodesRemove = nodeOut.diff(nodesMatch);
+	var nodesAdd = nodesMatch.diff(Object.keys(nodes));
+	var nodesLink = nodesMatch.diff(nodesAdd).diff(nodeOut);
+	
+	return {
+		text: nodeText,
+		html: nodeHtml,
+		error: false,
+		nodesRemove: nodesRemove,
+		nodesAdd: nodesAdd,
+		nodesLink: nodesLink
+	};	
+
+};
+
+zarBook.prototype.nodeExist = function(id){
+	return (id in this.data.nodesData);
+};
+
+zarBook.prototype.nodeUniqId = function(obj){
+	var exc = obj || {};
+	var nodes = this.data.nodesData;
+	
+	for(var id=1; ;id++){
+		if (!(id in nodes) && !(id in exc)) break;
+	}
+	return id;
+};
+
 zarBook.prototype.visDraw = function(id){
 	this.vis = {
 		nodes : new vis.DataSet(this.data.nodes),
@@ -97,19 +265,126 @@ zarBook.prototype.visDraw = function(id){
 	};
 	var container = document.getElementById(id);
 	var data = {
-                nodes: this.vis.nodes,
-                edges: this.vis.edges
-    };
-    var options = {
-        edges: {
-    		smooth: {
-    			forceDirection: "none"
-    		},
+		nodes: this.vis.nodes,
+		edges: this.vis.edges
+	};
+	var color = {
+		def : { //default
+			background : 'rgb(151,194,252)',
+			border : 'rgb(43,124,233)',
+			hover: {
+				background: 'rgb(210,229,255)',
+				border : 'rgb(43,124,233)'
+			},
+			highlight: {
+				background: 'rgb(210,229,255)',
+				border : 'rgb(43,124,233)'
+			}
+		},
+		yellow : {
+			background: 'rgb(240, 173, 78)',
+			border: 'rgb(238, 162, 54)',
+			hover: {
+				background: 'rgb(236, 151, 31)',
+				border: 'rgb(213, 133, 18)',
+			},
+			highlight: {
+				background: 'rgb(236, 151, 31)',
+				border: 'rgb(152, 95, 13)'
+			}
+		},
+		red : {
+			background: 'rgb(217, 83, 79)',
+			border : 'rgb(212, 63, 58)',
+			hover: {
+				background: 'rgb(201, 48, 44)',
+				border: 'rgb(172, 41, 37)'
+			},
+			highlight: {
+				background: 'rgb(201, 48, 44)',
+				border: 'rgb(118, 28, 25)'
+			}
+		},
+		green: {
+			background: 'rgb(92, 184, 92)',
+			border: 'rgb(76, 174, 76)',
+			hover: {
+				background: 'rgb(68, 157, 68)',
+				border: 'rgb(57, 132, 57)',
+			},
+			highlight: {
+				background: 'rgb(68, 157, 68)',
+				border: 'rgb(37, 86, 37)'
+			}
+		},
+		aqua: {
+			background: 'rgb(91, 192, 222)',
+			border: 'rgb(70, 184, 218)',
+			hover: {
+				background: 'rgb(49, 176, 213)',
+				border: 'rgb(38, 154, 188)',
+			},
+			highlight: {
+				background: 'rgb(49, 176, 213)',
+				border: 'rgb(27, 109, 133)'
+			}
+		},
+	};
+	var size = 10;
+	var options = {
+		edges: {
+			smooth: {
+				forceDirection: "none"
+			},
 			arrows: {to : true }
-        },
-
-        interaction:{hover:true}
-      };
+		},
+		nodes: {
+			font: {size: 20},
+		},
+		groups: {
+			End : { //link to start
+				shape: 'diamond',
+				color : color.aqua,
+				size: size
+			},
+			EndAlone : {
+				shape: 'diamond',
+				color: color.red,
+				size: size
+			},
+			InOut : { //вход выход
+				shape: 'dot',
+				color : color.def,
+				size: size
+			},
+			In : { // вход !выход
+				shape: 'triangle',
+				color: color.yellow,
+				size: size
+			},
+			Out : { // !вход выход
+				shape: 'triangleDown',
+				color: color.yellow,
+				size: size
+			},
+			Alone : { //!вход !выход
+				shape: 'square',
+				color: color.red,
+				size: size
+			},
+			Start : { 
+				shape: 'star',
+				color: color.green,
+				size: size+10
+			},
+			StartAlone : { 
+				shape: 'star',
+				color: color.red,
+				size: size
+			}
+		},
+		interaction:{hover:true}
+	};
 
 	this.vis.network = new vis.Network(container, data, options);
 	
@@ -117,36 +392,51 @@ zarBook.prototype.visDraw = function(id){
 		$.publish("select",e);
 	});
 	this.vis.network.on("dragStart", function(e){
-		if(e.nodes.length > 0 || e.edges.length > 0) $.publish("select",e);
+		if (e.nodes.length > 0 || e.edges.length > 0) $.publish("select",e);
 	});
 	
-	this.vis.network.on("hoverNode", function (e){$("body").css("cursor","pointer"); });
-	this.vis.network.on("blurNode", function (e){ $("body").css("cursor","default"); });
-	this.vis.network.on("hoverEdge", function (e){ $("body").css("cursor","pointer"); });
-	this.vis.network.on("blurEdge", function (e){ $("body").css("cursor","default"); });
+	this.vis.network.on("doubleClick", function(e){
+		if (e.nodes.length > 0)
+		$.publish("dblclick",e);
+	});
+	
+	this.vis.network.on("hoverNode", function (e){ var c = this.body.container;$(c).css("cursor","pointer"); });
+	this.vis.network.on("blurNode", function (e){ var c = this.body.container;$(c).css("cursor","default"); });
+	this.vis.network.on("hoverEdge", function (e){ var c = this.body.container;$(c).css("cursor","pointer"); });
+	this.vis.network.on("blurEdge", function (e){ var c = this.body.container;$(c).css("cursor","default"); });
+	
 };
 
-zarBook.prototype.nodeText = function(id,text){
-	this.data.nodesData[id].text = text;
-};
 
-zarBook.prototype.visNodeAdd = function(){
-	var arr = this.data.nodesData;
+zarBook.prototype.visNodeAdd = function(obj){ //return id
+	if (typeof obj === "undefined") obj = {};
+	if (typeof obj.id === "undefined") obj.id = "";
 
-	for(var id=1; ;id++){
-		if (!(id in arr)) break;
-	}
+	var id = (isNaN(parseInt(obj.id))) ? this.nodeUniqId() : obj.id;
+
+	if (this.nodeExist(id)) return id;
+	
+	var text = obj.text || "";
+	var check = obj.check || false;
+	var group = obj.group || 'Alone';
+	
+	var title = (id > 0) ? "Параграф "+id : "Стартовый параграф";
+	var label = (id > 0) ? id : "Начало";
 	
 	try {
 		this.vis.nodes.add(
-    		{
-    			id: id,
-    			label: id,
-    			title: "Параграф "+id
-    		}
+			{
+				id: id,
+				label: label,
+				title: title,
+				group: group
+			}
 		);
-		this.data.nodesData[id] = {in:{},out:{}};
+		this.data.nodesData[id] = {in:{},out:{},text:text,label:""};
 		this.data.nodes = this.vis.nodes.get();
+	
+
+		if(check) this.visNodeCheck(id);	
 		return id;
 		
 	} catch (err) {
@@ -154,14 +444,54 @@ zarBook.prototype.visNodeAdd = function(){
 	}
 };
 
-zarBook.prototype.visNodeAddChildren = function(parent){
-	var children = this.visNodeAdd();
-	this.visEdgeAdd(parent,children);
+zarBook.prototype.visNodeAddChildren = function(parent,children){
+	var child = this.visNodeAdd({id:children});
+	var re = new RegExp('\\[n='+parent+'\\]','g');
+	if (!re.test(this.nodeText(parent)))
+		this.nodeText(parent," [n="+child+"]Параграф "+child+"[/n] ",true);
+	this.visEdgeAdd({from:parent,to:child});
 };
 
-zarBook.prototype.visNodeAddParent = function(parent){
-	var children = this.visNodeAdd();
-	this.visEdgeAdd(children,parent);
+zarBook.prototype.visNodeAddParent = function(id){
+	var parent = this.visNodeAdd();
+	var re = new RegExp('\\[n='+parent+'\\]','g');
+	if (!re.test(this.nodeText(parent)))
+		this.nodeText(parent," [n="+id+"]Параграф "+id+"[/n] ");
+	this.visEdgeAdd({from:parent,to:id});
+};
+
+zarBook.prototype.visNodeCheck = function(arr){
+	if (typeof arr === "number") arr = [arr];
+	
+	for (var i = 0; i < arr.length; i++){
+		var id = arr[i];
+		var node = this.data.nodesData[id];
+		
+		var nodeType = "";
+
+		var inL = Object.keys(node.in).length;
+		var outL = Object.keys(node.out).length;
+	
+		if (inL == 0 && outL == 0) nodeType = "Alone";
+		else if (inL > 0 && outL == 0) nodeType = "In";
+		else if (inL == 0 && outL > 0) nodeType = "Out";
+		else if (inL > 0 && outL > 0) nodeType = "InOut";
+				
+		if (id==0) {
+			nodeType = "Start";
+			if (outL == 0) nodeType = "StartAlone";
+		}
+		if (0 in node.out){
+			nodeType = "End";
+			if (inL == 0) nodeType = "EndAlone";
+		}
+	
+		this.visNodeUpdate({
+			id:id,
+			group: nodeType
+		});
+	}
+	
 };
 
 zarBook.prototype.visNodeUpdate = function(options){
@@ -208,63 +538,156 @@ zarBook.prototype.visNodeRemove = function(id){
 };
 
 
-zarBook.prototype.visEdgeAdd = function(parent,children){
-	var arr = this.data.edgesData;
+zarBook.prototype.visEdgeAdd = function(obj){
+	var parent = obj.from;
+	var children = obj.to;
+	var error = false;
 
-	for(var id=1; ;id++){
-		if (!(id in arr)) break;
+	var nodes = this.data.nodesData;
+	var edges = this.data.edgesData;
+	
+	//can exist
+	if (children in nodes[parent].out) error = true;
+	
+	//can multiple
+	if (parent in nodes[children].out) {
+		error = true;
+		var id = nodes[children].out[parent];
+
+		nodes[parent].out[children] = id;
+		nodes[children].in[parent] = id;
+		
+		edges[id].multi = true;
+
+		this.visEdgeUpdate({
+			id: nodes[children].out[parent],
+			arrows:{
+				from: true,
+				to: true
+			},
+		});
 	}
+	
+	if (error) {
+		this.visNodeCheck([parent,children]);
+		return;
+	}
+		
+	//new edge
+	for(var id=1; ;id++){
+		if (!(id in edges)) break;
+	}
+	
 	try {
 		this.vis.edges.add({
 			id : id,
 			from : parent,
 			to : children,
-			label : ""
+			label : "",
+			color: "rgb(43, 124, 233)",
 		});
-		this.data.nodesData[parent].out[children] = id;
-		this.data.nodesData[children].in[parent] = id;
-		this.data.edgesData[id] = {
-			from: parent,
-			to: children
-		};
-		this.data.edges = this.vis.edges.get();
-	} catch (err) {
-		console.log(err);
-	}
+	} catch (err) { console.log(err); }
+	
+	nodes[parent].out[children] = id;
+	nodes[children].in[parent] = id;
+	edges[id] = {
+		from: parent,
+		to: children,
+		multi: false
+	};
+	this.data.edges = this.vis.edges.get();
+	
+	this.visEdgeUpdate({id:id}); //for check start link
+	this.visNodeCheck([parent,children]);
 };
 
+
 zarBook.prototype.visEdgeUpdate = function(options){
-	 this.vis.edges.update(options);
-	 this.data.edges = this.vis.edges.get();
+	//hide edges to start
+	var edge = this.data.edgesData[options.id];
+	if (edge.from == 0 || edge.to == 0) {
+		$.extend(options,{
+			dashes: true,
+			physics: false
+		});
+	}
+	
+	//apply
+	try{ this.vis.edges.update(options); }
+	catch (err) { console.log(err); }
+	
+	this.data.edges = this.vis.edges.get();
 };
 
 zarBook.prototype.visEdgeLabel = function(id,str){
 	if (typeof str === "undefined") return this.data.edgesData[id].label;
-	try {
-		this.visEdgeUpdate({
-			id:id,
-			label : str,
-			font: {align: 'middle'}
-		});
-		this.data.edgesData[id].label = str;
-		
-	} catch (err) {
-		console.log(err);
-	}
+	this.visEdgeUpdate({
+		id:id,
+		label : str,
+		font: {align: 'middle'}
+	});
+	this.data.edgesData[id].label = str;
 };
 
-zarBook.prototype.visEdgeRemove = function(id){
-	try {
-		this.vis.edges.remove({id: id});
-		this.data.edges = this.vis.edges.get();
+zarBook.prototype.visEdgeRemove = function(obj){
+	var nodes = this.data.nodesData;
+	var edgeId = nodes[obj.from].out[obj.to];
+	var edge = this.data.edgesData[edgeId];
+	
+	//remove arrow
+	if (edge.from == obj.to){
+		delete this.data.nodesData[obj.from].out[obj.to];
+		edge.multi = false;
 		
-		delete this.data.nodesData[this.data.edgesData[id].from].out[this.data.edgesData[id].to];
-		delete this.data.nodesData[this.data.edgesData[id].to].in[this.data.edgesData[id].from];
-		delete this.data.edgesData[id];
+		this.visEdgeUpdate({
+			id: edgeId,
+			arrows:{
+				from:false,
+				to: true
+			}
+		});
 		
-	} catch (err) {
-		console.log(err);
+		
+		this.visNodeCheck([edge.from,edge.to]);
+		return;
 	}
+	
+	//reverse and remove arrow
+	if (edge.from == obj.from && obj.from in nodes[obj.to].out){
+		delete this.data.nodesData[obj.to].in[obj.from];
+		delete this.data.nodesData[obj.from].out[obj.to];
+		
+		edge.multi = false;
+		
+		//reverse data
+		var from = edge.from;
+		var to = edge.to;
+		edge.from = to;
+		edge.to = from;
+
+		//update
+		this.visEdgeUpdate({
+			id: edgeId,
+			from: to,
+			to: from,
+			arrows:{
+				from:false,
+				to: true
+			}
+		});
+		this.visNodeCheck([from,to]);
+		return;
+	}
+	
+	//remove edge
+	try { this.vis.edges.remove({id: edgeId}); }
+	catch (err) { console.log(err);}		
+
+	delete this.data.nodesData[edge.from].out[edge.to];
+	delete this.data.nodesData[edge.to].in[edge.from];
+	delete this.data.edgesData[edgeId];
+		
+	this.visNodeCheck([edge.from,edge.to]);
 };
 
 
@@ -274,371 +697,3 @@ zarBook.prototype.visPhysics = function(state){
 	 	physics: {enabled: state}
 	 });
 };
-
-$(function(){
-
-	
-	$.extend($.noty.defaults,{
-    	type: 'information',
-    	layout: 'bottomRight',
-    	timeout: 5000,
-    	text: '', // can be html or string
-    	force: false, // adds notification to the beginning of queue when set to true
-    	modal: false,
-		animation   : {
-			open  : 'animated bounceInRight',
-			close : 'animated bounceOutRight',
-			easing: 'swing',
-			speed : 500
-		}
-	});
-
-//init	
-	var zb = new zarBook();
-	
-	$.subscribe("init",function(e){
-		$("#zbeBookName").html( zb.getName() );
-		$("#zbManager").fadeOut();
-		$("#zbeNameWrap").slideDown();
-		$(".zbeIniShow").fadeIn();
-		zb.visDraw("canvas");
-	});
-	
-//select event
-	$.subscribe("select",function(e,obj){
-		if (typeof obj === "undefined") obj = {nodes:[],edges:[]};
-		
-		if (obj.nodes.length > 0) {
-			var id = obj.nodes[0];
-			var nodeText = (typeof zb.data.nodesData[id].text === "undefined") ? "" : zb.data.nodesData[id].text;
-			$("#zbeNodeDropdown").show();
-			$(".zbeNodeNumber").html(id);
-			$(".zbeNodeDataNumber").data("id",id);
-			$(".zbeNodeValText").val(nodeText);
-			
-			//set node physics
-			var link = $("#zbeNodePhysicsLink");
-			if (zb.visNodePhysics(id)) {
-				var str = link.data("strOff");
-				link.html( str ).data("act",0);
-			} else {
-				var str = link.data("strOn");
-				link.html( str ).data("act",1);;
-			}
-				
-			
-		} else {
-			$("#zbeNodeDropdown").hide();
-		}
-		
-		if (obj.edges.length > 0){
-			var edgeText =  (obj.edges.length == 1) 
-				? "Ребро&nbsp;"+ '<span class="badge">'+zb.data.edgesData[obj.edges[0]].from+'&rarr;'+zb.data.edgesData[obj.edges[0]].to+'</span>&nbsp'
-				: "Рёбра&nbsp; ("+obj.edges.length+"шт.)";
-			
-			var edgesBadgesStr = "";
-			var edgesInputStr = "";
-			$.each(obj.edges,function(k,v){
-				var edgeLabel = (typeof zb.data.edgesData[v].label === "undefined") ? "" : zb.data.edgesData[v].label;
-				edgesBadgesStr += '<span class="badge">'+zb.data.edgesData[v].from+'&rarr;'+zb.data.edgesData[v].to+'</span>&nbsp';
-				edgesInputStr += '<p><div class="input-group">\
-					<span class="input-group-addon">\
-					<span class="badge">'+zb.data.edgesData[v].from+'&rarr;'+zb.data.edgesData[v].to+'</span></span>\
-					<input type="text" name="'+v+'" class="form-control" placeholder="'+edgeLabel+'" value="'+edgeLabel+'">\
-					</div></p>';					
-				});
-			$(".zbeEdgesInputs").html(edgesInputStr);
-			$(".zbeEdgesBadges").html(edgesBadgesStr);
-			$(".zbeEdgesDataNumbers").data("id",$.toJSON(obj.edges));
-			
-			$("#zbeEdgeDropdown").show();
-			
-			$("#zbeEdgeDropdownTitle").html(edgeText);
-		} else { 
-			$("#zbeEdgeDropdown").hide();
-		}
-
-	});
-	
-//editor
- $("textarea").markItUp( {
-    nameSpace:       "xbbcode", // Useful to prevent multi-instances CSS conflict
-	previewParserPath:	'', // path to your XBBCode parser
-	onShiftEnter:	{keepDefault:false, replaceWith:'[br /]\n'},
-	onCtrlEnter:	{keepDefault:false, openWith:'\n[p]', closeWith:'[/p]\n'},
-	onTab:			{keepDefault:false, openWith:'	 '},
-	markupSet: [
-		{name:'N', openWith:'[n=(!( class="[![Class]!]")!)]', closeWith:'[/n]' },
-		{separator:'|' },
-		{name:'H1', key:'1', openWith:'[h1(!( class="[![Class]!]")!)]', closeWith:'[/h1]'},
-		{name:'H2', key:'2', openWith:'[h2(!( class="[![Class]!]")!)]', closeWith:'[/h2]'},
-		{name:'H3', key:'3', openWith:'[h3(!( class="[![Class]!]")!)]', closeWith:'[/h3]'},
-		{name:'H4', key:'4', openWith:'[h4(!( class="[![Class]!]")!)]', closeWith:'[/h4]'},
-		{name:'H5', key:'5', openWith:'[h5(!( class="[![Class]!]")!)]', closeWith:'[/h5]'},
-		{name:'H6', key:'6', openWith:'[h6(!( class="[![Class]!]")!)]', closeWith:'[/h6]'},
-		{separator:'|' },
-		{name:'P', openWith:'[p(!( class="[![Class]!]")!)]', closeWith:'[/p]' },
-		{separator:'|' },
-		{name:'B', key:'B', openWith:'(!([b]|!|[b])!)', closeWith:'(!([/b]|!|[/b])!)' },
-		{name:'I', key:'I', openWith:'(!([i]|!|[i])!)', closeWith:'(!([/i]|!|[/i])!)' },
-		{name:'U', key:'U', openWith:'(!([u]|!|[u])!)', closeWith:'(!([/u]|!|[/u])!)' },
-		{separator:'' },
-		{name:'UL', openWith:'[ul]\n', closeWith:'[/ul]\n' },
-		{name:'OL', openWith:'[ol]\n', closeWith:'[/ol]\n' },
-		{name:'LI', openWith:'[li]', closeWith:'[/li]' },
-		//{separator:'' },
-		//{name:'', key:'P', replaceWith:'[img src="[![Source:!:http://]!]" alt="[![Alternative text]!]" /]' },
-		//{name:'', key:'L', openWith:'[a href="[![Link:!:http://]!]"(!( title="[![Title]!]")!)]', closeWith:'[/a]', placeHolder:'Your text to link...' },
-		//{separator:'' },
-		//{name:'', className:'clean', replaceWith:function(markitup) { return markitup.selection.replace(/\[(.*?)\]/g, "") } },
-		//{name:'', className:'preview', call:'preview' }
-	]
-});
-
-//editor previev 
-	$("#zbeModalNodeEditPrevievLink").bind("click",function(e){
-		var str = $("#zbeModalNodeEditArea").val();
-		var obj = XBBCODE.process({text: str});
-		if (obj.error == true){
-			var strError = "";
-			$.each(obj.errorQueue,function(k,v){
-				strError += "<li>"+v+"</li>";
-			});
-			str = '<div class="alert alert-danger"><ul>'+strError+'</ul></div>';
-			$("#zbeModalNodeEditPreviev").html(str);
-		} else 
-			str = obj.html;
-			str = str.replace(/\r\n|\r|\n/g,"<br />");		
-			$("#zbeModalNodeEditPreviev").html(str);
-	});
-	
-//editor save 
-	$("#zbeNodeEditSaveLink").bind("click",function(e){
-		var id = $(this).data("id");
-		var str = $("#zbeModalNodeEditArea").val();
-		zb.nodeText(id,str);
-		$("#zbeModalNodeEdit").modal("hide");
-	});
-
-	
-//edges label 
-	$("#zbeModalEdgesLabelForm").bind("submit",function(e){
-		e.preventDefault();
-		var obj = $(this).serializeArray();
-		$.each(obj,function(k,v){
-			zb.visEdgeLabel(v.name,v.value);			
-		});
-		$("#zbeModalEdgesLabel").modal("hide");
-	});	
-	
-//edges remove 
-	$("#zbeEdgesRemoveLink").bind("click",function(e){
-		e.preventDefault();
-		var id = $(this).data("id");
-		id = $.parseJSON(id);
-		$.each(id,function(k,v){
-			zb.visEdgeRemove(v);
-		});
-		$("#zbeModalEdgesRemove").modal("hide");
-	});
-	
-//node add
-	$("#zbeNodeAddLink").click(function(e){
-		e.preventDefault();
-		zb.visNodeAdd();
-	});	
-	
-//node add children 
-	$("#zbeNodeAddChildrenLink").bind("click",function(e){
-		e.preventDefault();
-		var parent = $(this).data("id");
-		zb.visNodeAddChildren(parent);
-	});
-	
-//node add parent 
-	$("#zbeNodeAddParentLink").bind("click",function(e){
-		e.preventDefault();
-		var parent = $(this).data("id");
-		zb.visNodeAddParent(parent);
-	});
-	
-//node concat
-	$("#zbeModalNodeConcatForm").submit(function(e){
-		e.preventDefault();
-		var err = 0;
-		var inputParent = $("#zbeModalNodeConcatParentInput");
-		var inputParentWrap = inputParent.closest(".form-group").removeClass('has-error');
-		var valParent = inputParent.val();
-		var helpParent = $("#zbeModalNodeConcatParentHelp").empty();
-		
-		var inputChildren = $("#zbeModalNodeConcatChildrenInput");
-		var inputChildrenWrap = inputChildren.closest(".form-group").removeClass('has-error');
-		var valChildren = inputChildren.val();
-		var helpChildren = $("#zbeModalNodeConcatChildrenHelp").empty();
-		
-		var helpForm = $("#zbeModalNodeConcatHelp").empty();
-
-		var nodeId = $(this).data("id");
-		
-		var valid = function(val){
-			var parseVal = parseInt(val);
-			var err = "valid";
-			if (val=="") return "skip";
-				
-			if (isNaN(parseVal))
-				return "Это значение не является целым числом!";
-			if (parseVal == 0)
-				return "Номерация параграфов начинается с единицы!";
-			if (parseVal == nodeId)
-				return "Нельзя связать параграф с самим собой!";			
-			if (parseVal in zb.data.nodesData[nodeId].in || parseVal in zb.data.nodesData[nodeId].out)
-				return "Эти параграфы уже связаны";			
-			if (!(parseVal in zb.data.nodesData))
-				return "Параграф с таким номером ещё не создан";
-			return err;
-		};
-		
-		var strParent = valid(valParent);
-		if (strParent != "valid" && strParent != "skip") {
-			inputParentWrap.addClass("has-error");
-			helpParent.html(strParent);
-		}
-
-		var strChildren = valid(valChildren);
-		if (strChildren != "valid" && strChildren != "skip") {
-			inputChildrenWrap.addClass("has-error");
-			helpChildren.html(strChildren);
-		}
-
-		if (strParent == "skip" && strChildren == "skip")
-			return helpForm.html("Вы оставили оба поля пустыми и отправили форму! Why, Mr. Anderson?");
-		
-		if (parseInt(valParent) == parseInt(valChildren))
-			return helpForm.html("Если Вы можете представить предкопотомка, то я искренне завидую Вашей фантазии.");
-		
-		if (strParent != "valid" && strParent != "skip" && strChildren != "valid" && strChildren != "skip")
-			return helpForm.html("Форма заполнена неверно. Выпейте кофе и попытайтесь ещё раз.");
-			
-		if ((strParent != "valid" || strParent == "skip") && (strChildren != "valid" || strChildren == "skip"))
-			return helpForm.html("Одно из значений заполнено неверно, проверьте ещё раз.");
-		
-		if (strParent == "valid") zb.visEdgeAdd(parseInt(valParent),nodeId);
-		if (strChildren == "valid") zb.visEdgeAdd(nodeId,parseInt(valChildren));
-		
-		$("#zbeModalNodeConcat").modal("hide");
-		
-	});	
-	
-//node physics 
-	$("#zbeNodePhysicsLink").bind("click",function(e){
-		e.preventDefault();
-		var self = $(this);
-		var id = self.data("id");
-		var act = self.data("act");
-		
-		if (act == 0){
-			var str = self.data("act",1).data("strOn");
-			var state = false; 
-		} else {
-			var str = self.data("act",0).data("strOff");
-			var state = true;
-		}
-		$(this).html(str);
-		zb.visNodePhysics(id,state);
-	});
-
-
-//node remove
-	$("#zbeNodeRemoveLink").bind("click",function(){
-		var id = $(this).data("id");
-		zb.visNodeRemove(id);
-		$('#zbeModalNodeRemove').modal('hide');
-	});
-
-//disable physics on modal
-	$('.modal').on('show.bs.modal', function () {
-  		zb.visPhysics(false);
-  		$(this).find(".modalShowEmpty").empty();
-	});
-	$('.modal').on('hidden.bs.modal', function () {
-  		zb.visPhysics(true);
-	});
-	
-//book settings modal 
-	$('#zbeModalBookSetting').on('show.bs.modal', function () {
-		$("#zbeModalBookSettingNameInput").val(zb.getName());
-		$("#zbeModalBookSettingDescriptionArea").val(zb.data.info.description);
-		$("#zbeModalBookSettingCopyrightArea").val(zb.data.info.copyright);
-		
-	});
-	
-//book modal save 
-	$("#zbeModalBookSettingForm").bind("submit",function(e){
-		e.preventDefault();
-		var name = $("#zbeModalBookSettingNameInput").val();
-		zb.setName( name );
-		$("#zbeBookName").text(name);
-		
-		zb.data.info.description = $("#zbeModalBookSettingDescriptionArea").val();
-		zb.data.info.copyright = $("#zbeModalBookSettingCopyrightArea").val();
-		$('#zbeModalBookSetting').modal("hide");
-	});
-	
-//book modal play
-	$('#zbeModalBookPlay').on('show.bs.modal', function () {
-		zb.play({
-			body : $("#zbeModalBookPlayBody"),
-			header : $("#zbeModalBookPlayHeader"),
-			footer : $("#zbeModalBookPlayFooter"),
-			data : zb.data,
-		});
-		
-	});
-	
-
-	
-
-//book TEMP	
-	$("#zbCreateBookFrm").submit(function(e){
-		e.preventDefault();
-		zb.setName($(this).find("input[type=text]").val());
-		noty({text: "<b>"+zb.getName()+ "</b>" + " успешно создана"});
-		$.publish("init");
-	});
-	
-//book new	
-	$("#zbeBookNewLink").bind("click",function(e){
-		e.preventDefault();
-		$("#zbeBookUploadFormInputFile").val("");
-		window.location.reload();
-	});
-
-	$("#zbeSaveBtn").bind("click",function(e){
-		e.preventDefault();
-		zb.save();
-	});
-	
-
-//book load
-	$('#zbeBookUploadFormInputFile').change(function(){
-    	$('#zbeBookUploadFormInputText').val($(this).val());
-	}).trigger("change");
-	
-	$("#zbeBookUploadForm").submit(function(e) {
-		e.preventDefault();
-		var result = zb.getFile("zbeBookUploadFormInputFile");
-		noty({text: "<b>"+result.filename+ "</b>" + " успешно загружен"});
-	});
-	
-	
-//refresh
-	if( $("#zbeBookUploadFormInputFile").val() != "" ) {
-		//$("#zbeBookUploadForm").trigger("submit");
-	} else {
-	//	$("#zbCreateBookFrm").trigger("submit");
-	}
-	
-	$("#zbeBookUploadFormInputFile, #zbeBookUploadFormInputText").val("");
-	
-	
-});
