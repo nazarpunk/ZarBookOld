@@ -446,7 +446,7 @@ zarBook.prototype.visNodeAdd = function(obj){ //return id
 
 zarBook.prototype.visNodeAddChildren = function(parent,children){
 	var child = this.visNodeAdd({id:children});
-	var re = new RegExp('\\[n='+parent+'\\]','g');
+	var re = new RegExp('\\[n='+child+'\\]','g');
 	if (!re.test(this.nodeText(parent)))
 		this.nodeText(parent," [n="+child+"]Параграф "+child+"[/n] ",true);
 	this.visEdgeAdd({from:parent,to:child});
