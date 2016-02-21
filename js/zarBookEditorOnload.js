@@ -1,4 +1,8 @@
 $(function(){
+
+log($("#t").text())
+
+	
 //noty	
 	$.extend($.noty.defaults,{
     	type: 'information',
@@ -348,11 +352,11 @@ $(function(){
 	});
 	
 	
-//refresh
+//test
 	if( $("#zbeBookUploadFormInputFile").val() != "" ) {
 		//$("#zbeBookUploadForm").trigger("submit");
 	} else {
-		//$("#zbCreateBookFrm").trigger("submit");
+		$("#zbCreateBookFrm").trigger("submit");
 	}
 		
 	$("#zbeBookUploadFormInputFile, #zbeBookUploadFormInputText").val("");
