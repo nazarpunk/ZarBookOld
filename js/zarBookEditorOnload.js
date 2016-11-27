@@ -1,6 +1,6 @@
 $(function(){
 
-log($("#t").text())
+//log($("#t").text())
 
 	
 //noty	
@@ -79,6 +79,7 @@ log($("#t").text())
 			var edgesBadgesStr = "";
 			var edgesInputStr = "";
 			$.each(obj.edges,function(k,v){
+				if (typeof zb.data.edgesData[v] == 'undefined') return true;
 				var edgeLabel = (typeof zb.data.edgesData[v].label === "undefined") ? "" : zb.data.edgesData[v].label;
 				arrow = (zb.data.edgesData[v].multi) ? 'fa-arrows-h' : 'fa-long-arrow-right';
 				
@@ -352,11 +353,29 @@ log($("#t").text())
 	});
 	
 	
+//window unload
+	var areYouReallySure = false;
+    var internalLink = false;
+    function areYouSure() {
+        if(allowPrompt) {
+            if (!areYouReallySure && !internalLink && true) {
+                areYouReallySure = true;
+                location.href = "#";
+                return "Текст предупреждения";
+            }
+        } else {
+            allowPrompt = true;
+        }
+    }
+    
+    var allowPrompt = true;
+    window.onbeforeunload = areYouSure;
+	
 //test
 	if( $("#zbeBookUploadFormInputFile").val() != "" ) {
 		//$("#zbeBookUploadForm").trigger("submit");
 	} else {
-		$("#zbCreateBookFrm").trigger("submit");
+		//$("#zbCreateBookFrm").trigger("submit");
 	}
 		
 	$("#zbeBookUploadFormInputFile, #zbeBookUploadFormInputText").val("");

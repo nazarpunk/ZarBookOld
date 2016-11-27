@@ -40,5 +40,6 @@ zarBook.prototype.playNode = function(id){
 		else text = data.nodesData[id].text;
 		
 	var obj = XBBCODE.process({text: text});
-	this.playData.body.html(obj.html);	
+	var str = obj.html.replace(/\r\n|\r|\n/g,"<br />");
+	this.playData.body.html(str);	
 };
